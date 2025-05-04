@@ -6,7 +6,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 -- Основной фрейм
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 350, 0, 450) -- Увеличил размер для лучшего отображения
+mainFrame.Size = UDim2.new(0, 350, 0, 450)
 mainFrame.Position = UDim2.new(0.5, -175, 0.5, -225)
 mainFrame.Active = true
 mainFrame.Draggable = true
@@ -92,22 +92,6 @@ do
         ["Coconut Bay"] = {"Moai"}
     }
 
-    -- Собираем всех врагов в один список для сортировки
-    local allEnemies = {}
-    for location, enemies in pairs(enemiesByLocation) do
-        for _, enemy in ipairs(enemies) do
-            table.insert(allEnemies, {
-                name = enemy,
-                location = location
-            })
-        end
-    end
-
-    -- Сортируем по алфавиту
-    table.sort(allEnemies, function(a, b)
-        return a.name < b.name
-    end)
-
     -- Заголовок
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0.06, 0)
@@ -119,14 +103,99 @@ do
     title.TextSize = 18
     title.Parent = enemyContent
 
+    -- Фрейм для вкладок биомов
+    local biomeTabsFrame = Instance.new("Frame")
+    biomeTabsFrame.Size = UDim2.new(1, 0, 0.1, 0)
+    biomeTabsFrame.Position = UDim2.new(0, 0, 0.06, 0)
+    biomeTabsFrame.BackgroundTransparency = 1
+    biomeTabsFrame.Parent = enemyContent
+
     -- Список врагов
-    local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Size = UDim2.new(1, 0, 0.82, 0)
-    scrollFrame.Position = UDim2.new(0, 0, 0.08, 0)
-    scrollFrame.BackgroundTransparency = 1
-    scrollFrame.ScrollBarThickness = 6
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scrollFrame.Parent = enemyContent
+    local enemiesScrollFrame = Instance.new("ScrollingFrame")
+    enemiesScrollFrame.Size = UDim2.new(1, 0, 0.72, 0)
+    enemiesScrollFrame.Position = UDim2.new(0, 0, 0.16, 0)
+    enemiesScrollFrame.BackgroundTransparency = 1
+    enemiesScrollFrame.ScrollBarThickness = 6
+    enemiesScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    enemiesScrollFrame.Parent = enemyContent
+
+    -- Контейнеры для каждого биома
+    local biomeContents = {}
+    local biomeButtons = {}
+
+    -- Функция создания контента для биома
+    local function createBiomeContent(biomeName, enemies)
+        local contentFrame = Instance.new("Frame")
+        contentFrame.Size = UDim2.new(1, 0, 1, 0)
+        contentFrame.BackgroundTransparency = 1
+        contentFrame.Visible = false
+        contentFrame.Parent = enemiesScrollFrame
+
+        local scrollFrame = Instance.new("ScrollingFrame")
+        scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+        scrollFrame.BackgroundTransparency = 1
+        scrollFrame.ScrollBarThickness = 6
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scrollFrame.Parent = contentFrame
+
+        -- Сортировка врагов по алфавиту
+        table.sort(enemies)
+
+        -- Создаем кнопки для врагов
+        local buttonHeight = 32
+        local spacing = 5
+        local totalHeight = 0
+
+        for _, enemyName in ipairs(enemies) do
+            local enemyButton = Instance.new("TextButton")
+            enemyButton.Size = UDim2.new(1, -10, 0, buttonHeight)
+            enemyButton.Position = UDim2.new(0, 5, 0, totalHeight)
+            enemyButton.Text = enemyName
+            enemyButton.TextColor3 = Color3.new(1, 1, 1)
+            enemyButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            enemyButton.Font = Enum.Font.Gotham
+            enemyButton.TextSize = 12
+            enemyButton.TextXAlignment = Enum.TextXAlignment.Left
+            enemyButton.Parent = scrollFrame
+            
+            enemyButton.MouseButton1Click:Connect(function()
+                if not player.Character then
+                    enemyButton.Text = "Нет персонажа!"
+                    task.wait(1)
+                    enemyButton.Text = enemyName
+                    return
+                end
+                
+                local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+                if not humanoidRootPart then
+                    enemyButton.Text = "Нет HRP!"
+                    task.wait(1)
+                    enemyButton.Text = enemyName
+                    return
+                end
+                
+                enemyButton.Text = "Поиск "..enemyName.."..."
+                task.wait(0.1)
+                
+                local enemy = findNearestEnemy(enemyName)
+                if enemy then
+                    humanoidRootPart.CFrame = enemy.CFrame + Vector3.new(0, 3, 0)
+                    enemyButton.Text = enemyName.." ✓"
+                    task.wait(1)
+                    enemyButton.Text = enemyName
+                else
+                    enemyButton.Text = enemyName.." не найден!"
+                    task.wait(1)
+                    enemyButton.Text = enemyName
+                end
+            end)
+            
+            totalHeight = totalHeight + buttonHeight + spacing
+        end
+
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+        return contentFrame
+    end
 
     -- Функция поиска ближайшего врага по имени
     local function findNearestEnemy(enemyName)
@@ -164,59 +233,46 @@ do
         return nearestEnemy
     end
 
-    -- Создаем кнопки для всех врагов
-    local buttonHeight = 32
-    local spacing = 5
-    local totalHeight = 0
+    -- Создаем вкладки для каждого биома
+    local biomeNames = {}
+    for biomeName in pairs(enemiesByLocation) do
+        table.insert(biomeNames, biomeName)
+    end
+    table.sort(biomeNames)
 
-    for _, enemyData in ipairs(allEnemies) do
-        local enemyButton = Instance.new("TextButton")
-        enemyButton.Size = UDim2.new(1, -10, 0, buttonHeight)
-        enemyButton.Position = UDim2.new(0, 5, 0, totalHeight)
-        enemyButton.Text = enemyData.name .. " :: " .. enemyData.location
-        enemyButton.TextColor3 = Color3.new(1, 1, 1)
-        enemyButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        enemyButton.Font = Enum.Font.Gotham
-        enemyButton.TextSize = 12
-        enemyButton.TextXAlignment = Enum.TextXAlignment.Left
-        enemyButton.Parent = scrollFrame
-        
-        enemyButton.MouseButton1Click:Connect(function()
-            if not player.Character then
-                enemyButton.Text = "Нет персонажа! :: " .. enemyData.location
-                task.wait(1)
-                enemyButton.Text = enemyData.name .. " :: " .. enemyData.location
-                return
+    local buttonWidth = 1 / #biomeNames
+    for i, biomeName in ipairs(biomeNames) do
+        local biomeButton = Instance.new("TextButton")
+        biomeButton.Size = UDim2.new(buttonWidth - 0.02, 0, 1, 0)
+        biomeButton.Position = UDim2.new((i-1)*buttonWidth + 0.01, 0, 0, 0)
+        biomeButton.Text = biomeName
+        biomeButton.TextColor3 = Color3.new(1, 1, 1)
+        biomeButton.BackgroundColor3 = i == 1 and Color3.fromRGB(30, 136, 229) or Color3.fromRGB(60, 60, 60)
+        biomeButton.Font = Enum.Font.Gotham
+        biomeButton.TextSize = 11
+        biomeButton.TextWrapped = true
+        biomeButton.Parent = biomeTabsFrame
+
+        local biomeContent = createBiomeContent(biomeName, enemiesByLocation[biomeName])
+        biomeContents[biomeName] = biomeContent
+
+        biomeButton.MouseButton1Click:Connect(function()
+            for name, content in pairs(biomeContents) do
+                content.Visible = false
             end
-            
-            local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
-            if not humanoidRootPart then
-                enemyButton.Text = "Нет HRP! :: " .. enemyData.location
-                task.wait(1)
-                enemyButton.Text = enemyData.name .. " :: " .. enemyData.location
-                return
-            end
-            
-            enemyButton.Text = "Поиск "..enemyData.name.."... :: " .. enemyData.location
-            task.wait(0.1)
-            
-            local enemy = findNearestEnemy(enemyData.name)
-            if enemy then
-                humanoidRootPart.CFrame = enemy.CFrame + Vector3.new(0, 3, 0)
-                enemyButton.Text = enemyData.name.." ✓ :: " .. enemyData.location
-                task.wait(1)
-                enemyButton.Text = enemyData.name .. " :: " .. enemyData.location
-            else
-                enemyButton.Text = enemyData.name.." не найден! :: " .. enemyData.location
-                task.wait(1)
-                enemyButton.Text = enemyData.name .. " :: " .. enemyData.location
+            biomeContent.Visible = true
+
+            for _, btn in ipairs(biomeTabsFrame:GetChildren()) do
+                if btn:IsA("TextButton") then
+                    btn.BackgroundColor3 = btn == biomeButton and Color3.fromRGB(30, 136, 229) or Color3.fromRGB(60, 60, 60)
+                end
             end
         end)
-        
-        totalHeight = totalHeight + buttonHeight + spacing
-    end
 
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+        if i == 1 then
+            biomeContent.Visible = true
+        end
+    end
 
     -- Кнопка обновления
     local refreshButton = Instance.new("TextButton")
